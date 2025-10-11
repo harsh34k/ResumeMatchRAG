@@ -16,3 +16,16 @@ def _extract_text_from_pdf(content: bytes):
     pdf = PyPDFLoader(io.BytesIO(content))
     pages = pdf.load()
     return " ".join([p.page_content for p in pages])
+def store_resumes(content, filename):
+    text = _extract_text_from_pdf(content)
+    chunks = splitter.split_text(text)
+    metadatas = [{"type": "resume", "filename": filename} for _ in chunks]
+    Pinecone.from_texts(chunks, embedding_model, index_name=index_name, metadatas=metadatas)
+    return text
+
+def store_job_description(content, filename):
+    text = _extract_text_from_pdf(content)
+    chunks = splitter.split_text(text)
+    metadatas = [{"type": "job_spec", "filename": filename}]
+    Pinecone.from_texts(chunks, embedding_model, index_name=index_name, metadatas=metadatas)
+    return text
