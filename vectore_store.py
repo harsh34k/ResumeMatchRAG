@@ -29,3 +29,28 @@ def store_job_description(content, filename):
     metadatas = [{"type": "job_spec", "filename": filename}]
     Pinecone.from_texts(chunks, embedding_model, index_name=index_name, metadatas=metadatas)
     return text
+
+def find_top_matches(top_k=10):
+    # Fetch the latest job spec (assuming one uploaded)
+    job_query = index.query(
+        vector=embedding_model.embed_query("Find resumes that match this job description"),
+        top_k=1,
+        include_metadata=True,
+        filter={"type": "job_spec"},
+    )
+
+    if not job_query or not job_query["matches"]:
+        return []
+
+    # Use the job description text for matching
+    job_text = job_query["matches"][0]["metadata"]["filename"]
+
+    # Find top resumes
+    results = index.query(
+        vector=embedding_model.embed_query(job_text),
+        top_k=top_k,
+        include_metadata=True,
+        filter={"type": "resume"},
+    )
+
+    return results["matches"]
