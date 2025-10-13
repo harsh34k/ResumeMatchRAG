@@ -70,6 +70,7 @@ langchain-pinecone==0.2.12
 langchain-text-splitters==0.3.11
 langdetect==1.0.9
 langsmith==0.4.34
+logger==1.4
 loguru==0.7.3
 lxml==6.0.2
 Markdown==3.9
