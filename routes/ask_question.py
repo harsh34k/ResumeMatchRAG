@@ -7,64 +7,87 @@ from langchain_core.documents import Document
 from langchain.schema import BaseRetriever 
 from pydantic import Field
 from typing import Optional, List
-from modules.llm import get_llm_chain
+from modules.llm import get_llm_chain,get_contextualizer_chain
 from modules.query_handlers import query_chain
+from logger import logger
 
 router = APIRouter()
 PINECONE_INDEX_NAME = "resume-match-index2"
 
+chat_histories: dict[str, List[dict]] = {}  
+
+PINECONE_INDEX_NAME = "resume-match-index2"
+
 @router.post("/ask/")
-async def ask_question(question: str = Form(...)):
+async def ask_question(
+    session_id: str = Form(...),
+    question: str = Form(...)
+):
     try:
-        if not question or not isinstance(question, str):
-            return JSONResponse(status_code=400, content={"error": "Question must be a non-empty string"})
+        logger.info(f"[session {session_id}] user query: {question}")
+
+        # Get or create history
+        history = chat_histories.get(session_id, [])
         
+        # Step 1: Use contextualizer if needed
+        contextualizer = get_contextualizer_chain()
+        # Pass history and question to get a clean standalone_question
+        context_input = {
+            "chat_history": history,
+            "question": question
+        }
+        standalone = contextualizer.run(context_input)  # assume .run returns string
+        logger.info(f"[session {session_id}] standalone question: {standalone}")
+
+        # Step 2: Now run your RAG workflow with standalone
         pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
         index = pc.Index(PINECONE_INDEX_NAME)
-        
+
         embed_model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={"device": "cpu"},
             encode_kwargs={"normalize_embeddings": True}
         )
-        
-        embedded_query = embed_model.embed_query(question)
-        
-        # Search resumes
+        embedded_query = embed_model.embed_query(standalone)
         res = index.query(vector=embedded_query, top_k=10, include_metadata=True)
-        print(f"[ask_question] Pinecone query returned {len(res['matches'])} matches")
-        
+        logger.info(f"[session {session_id}] Pinecone query returned {len(res['matches'])} matches")
+
         docs = [
             Document(
                 page_content=match["metadata"].get("text", ""),
                 metadata=match["metadata"]
             ) for match in res["matches"] if match["metadata"].get("text", "").strip()
         ]
-
         if not docs:
-            return JSONResponse(status_code=400, content={"error": "No resumes found in the database"})
+            return JSONResponse(status_code=400, content={"error": "No relevant documents found"})
 
-        # ✅ Extract job description from first matching doc
-        job_description = docs[0].metadata.get("job_description", "")
-        print(f"[ask_question] Retrieved job description from Pinecone: {job_description[:200]}...")
+        # Use your RAG chain
+        retriever = SimpleRetriever(docs)  # you may define this again
+        chain = get_llm_chain(retriever)
+        result = query_chain(chain, standalone,jd_text=docs[0].metadata.get("job_description", ""),chat_history="\n".join([f"{m['role']}: {m['content']}" for m in history]))
 
-        class SimpleRetriever(BaseRetriever):
-            tags: Optional[List[str]] = Field(default_factory=list)
-            metadata: Optional[dict] = Field(default_factory=dict)
-            def __init__(self, documents: List[Document]):
-                super().__init__()
-                self._docs = documents
-            def _get_relevant_documents(self, query: str) -> List[Document]:
-                return self._docs
-        
-        retriever = SimpleRetriever(docs)
-        chain, retriever = get_llm_chain(retriever)
-        
-        result = query_chain((chain, retriever), question, job_description)
+        # Step 3: Update history
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": result.get("response", "")})
+        chat_histories[session_id] = history
+
         return result
-    
+
     except Exception as e:
+        logger.exception(f"[session {session_id}] Error processing question")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class SimpleRetriever(BaseRetriever):
+    tags: Optional[List[str]] = Field(default_factory=list)
+    metadata: Optional[dict] = Field(default_factory=dict)
+
+    def __init__(self, documents: List[Document]):
+        super().__init__()
+        self._docs = documents
+
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        return self._docs
 
 
 @router.post("/ask/top_candidates/")

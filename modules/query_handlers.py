@@ -1,7 +1,7 @@
 from logger import logger
 from langchain_core.documents import Document
 
-def query_chain(chain_tuple, user_input: str, jd_text: str):
+def query_chain(chain_tuple, user_input: str, jd_text: str,chat_history=None):
     try:
         chain, retriever = chain_tuple  # Unpack chain and retriever
         logger.debug(f"Running chain for input: {user_input}, JD: {jd_text[:100]}...")
@@ -22,7 +22,7 @@ def query_chain(chain_tuple, user_input: str, jd_text: str):
         print(f"[query_handlers.py] Retrieved context of length {len(context)}")  # Debug
         
         # Build input for LLM
-        input_dict = {"question": user_input, "job_description": jd_text, "context": context}
+        input_dict = {"question": user_input, "job_description": jd_text, "context": context,'chat_history': chat_history or ""}
         print(f"[query_handlers.py] Invoking chain with input_dict")  # Debug
         result = chain.invoke(input_dict)
         
