@@ -1,31 +1,30 @@
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from langchain.chains import LLMChain
 from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def get_llm_chain(retriever):
+    print("[llm.py] Initializing LLM chain")  # Debug
     llm = ChatGroq(
         groq_api_key=GROQ_API_KEY,
         model_name="llama-3.3-70b-versatile"
     )
 
     prompt = PromptTemplate(
-        input_variables=["context", "question"],
+        input_variables=["context", "job_description", "question"],
         template="""
-You are **HRBot**, an AI-powered assistant trained to help HR teams evaluate and query candidate resumes.
-
-Your job is to provide clear, accurate, and helpful responses based **only on the provided context** from the resumes.
-
-The context may include chunks from multiple resumes—group information by 'file_name' when comparing candidates.
+You are **HRBot**, an AI-powered assistant for evaluating resumes against job descriptions.
 
 ---
 
-🔍 **Context** (from resumes):
+🔍 **Job Description**:
+{job_description}
+
+🗂 **Context** (resumes):
 {context}
 
 🙋‍♂️ **User Question**:
@@ -33,32 +32,11 @@ The context may include chunks from multiple resumes—group information by 'fil
 
 ---
 
-💬 **Answer**:
-- Respond in a professional, factual, and neutral tone.
-- Use simple explanations for skills, experience, or qualifications.
-- If comparing candidates (e.g., "which one is good?"), reference each by 'file_name', list pros/cons, and base on context only.
-- If the context does not contain the answer, say: "I'm sorry, but I couldn't find relevant information in the uploaded resumes."
-- Do NOT make up facts or assume details not in the context.
-- Do NOT give hiring advice or biases—stick to factual summaries.
+Answer professionally, based only on the context and job description. Always match candidates to the provided job description. For recommendations, rank the top 5 candidates by file_name, providing reasons based on their skills and experience relative to the job description. If insufficient context, say: "I couldn't find enough information to answer."
 """
     )
+    print(f"[llm.py] Prompt created with input_variables: {prompt.input_variables}")  # Debug
 
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        chain_type_kwargs={"prompt": prompt},
-        return_source_documents=True
-    )
-
-
-
-
-
-
-
-
-
-
-
-
+    chain = LLMChain(llm=llm, prompt=prompt)
+    print(f"[llm.py] LLMChain created with input_variables: {prompt.input_variables}")  # Debug
+    return chain, retriever  # Return both chain and retriever
