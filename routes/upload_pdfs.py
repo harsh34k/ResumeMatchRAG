@@ -1,21 +1,29 @@
-from fastapi import APIRouter, UploadFile, File,Form
+from fastapi import APIRouter, UploadFile, File, Form
 from typing import List
-from modules.load_vectorstore import load_vectorstore
 from fastapi.responses import JSONResponse
+from modules.load_vectorstore import load_vectorstore
 from logger import logger
 
-
-router=APIRouter()
+router = APIRouter()
 
 @router.post("/upload_pdfs/")
-async def upload_pdfs(files:List[UploadFile] = File(...)):
+async def upload_pdfs(
+    files: List[UploadFile] = File(...),
+    job_description: str = Form(...)
+):
     try:
-        logger.info("Recieved uploaded files")
-        load_vectorstore(files)
-        logger.info("Document added to vectorstore")
-        return {"messages":"Files processed and vectorstore updated"}
+        logger.info("📂 Received uploaded files with job description")
+
+        # Pass both arguments here 👇
+        load_vectorstore(files, job_description)
+
+        logger.info("✅ Documents added to vectorstore successfully")
+        return {"message": "Files processed and vectorstore updated"}
+
     except ValueError as ve:
-        return JSONResponse(status_code=400, content={"error": str(ve)})  # CHANGE: Handle limit error
+        logger.error(f"⚠️ Value error: {ve}")
+        return JSONResponse(status_code=400, content={"error": str(ve)})
+
     except Exception as e:
-        logger.exception("Error during PDF upload")
-        return JSONResponse(status_code=500,content={"error":str(e)})
+        logger.exception("💥 Error during PDF upload")
+        return JSONResponse(status_code=500, content={"error": str(e)})
