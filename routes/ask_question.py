@@ -26,20 +26,16 @@ async def ask_question(
     try:
         logger.info(f"[session {session_id}] user query: {question}")
 
-        # Get or create history
         history = chat_histories.get(session_id, [])
         
-        # Step 1: Use contextualizer if needed
         contextualizer = get_contextualizer_chain()
-        # Pass history and question to get a clean standalone_question
         context_input = {
             "chat_history": history,
             "question": question
         }
-        standalone = contextualizer.run(context_input)  # assume .run returns string
+        standalone = contextualizer.run(context_input) 
         logger.info(f"[session {session_id}] standalone question: {standalone}")
 
-        # Step 2: Now run your RAG workflow with standalone
         pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
         index = pc.Index(PINECONE_INDEX_NAME)
 
@@ -61,12 +57,11 @@ async def ask_question(
         if not docs:
             return JSONResponse(status_code=400, content={"error": "No relevant documents found"})
 
-        # Use your RAG chain
-        retriever = SimpleRetriever(docs)  # you may define this again
+        retriever = SimpleRetriever(docs)  
         chain = get_llm_chain(retriever)
         result = query_chain(chain, standalone,jd_text=docs[0].metadata.get("job_description", ""),chat_history="\n".join([f"{m['role']}: {m['content']}" for m in history]))
 
-        # Step 3: Update history
+
         history.append({"role": "user", "content": question})
         history.append({"role": "assistant", "content": result.get("response", "")})
         chat_histories[session_id] = history
@@ -99,7 +94,6 @@ async def get_top_candidates(job_description: str = Form(...)):
                 content={"error": "Job description must be a non-empty string"}
             )
 
-        # Initialize Pinecone + embeddings
         pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
         index = pc.Index(PINECONE_INDEX_NAME)
 
