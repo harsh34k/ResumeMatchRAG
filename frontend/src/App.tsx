@@ -97,10 +97,7 @@ const App: React.FC = () => {
       setLoading(true);
       setError(null);
       setChatMessages((prev) => [...prev, { role: "user", content: question }]);
-      const res = await axios.post("http://localhost:8000/ask/", {
-        session_id: sessionId,
-        question,
-      });
+      const res = await axios.post("http://localhost:8000/ask/", formData);
       const responseText = res.data.response || "No response";
       setChatMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
       setQuestion("");
