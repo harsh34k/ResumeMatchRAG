@@ -6,7 +6,6 @@ from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_pinecone import PineconeVectorStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 import cloudinary.uploader
 from config import cloudinary  # Assumes config.py with Cloudinary setup
 
@@ -67,7 +66,7 @@ def load_vectorstore(uploaded_files, job_description: str):
             raise
 
     print(f"Processing {len(file_urls)} uploaded resumes...")
-
+    from langchain_huggingface.embeddings import HuggingFaceEmbeddings
     embed_model = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
@@ -112,3 +111,4 @@ def load_vectorstore(uploaded_files, job_description: str):
     vector_store = PineconeVectorStore(index=index, embedding=embed_model)
     print("Vector store ready:", vector_store)
     return vector_store
+

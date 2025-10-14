@@ -1,0 +1,6 @@
+frontend/
+my_venv/
+uploaded_docs/
+__pycache__/
+*.pyc
+.env
