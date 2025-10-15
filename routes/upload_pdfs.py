@@ -3,7 +3,6 @@ from typing import List
 from fastapi.responses import JSONResponse
 from modules.load_vectorstore import load_vectorstore
 from logger import logger
-from main import verify_oidc_token  # Import OIDC dependency
 
 router = APIRouter()
 
@@ -11,10 +10,9 @@ router = APIRouter()
 async def upload_pdfs(
     files: List[UploadFile] = File(...),
     job_description: str = Form(...),
-    user=Depends(verify_oidc_token),  # Add OIDC dependency
 ):
     try:
-        logger.info(f"📂 Received uploaded files with job description from user: {user}")
+        logger.info(f"📂 Received uploaded files with job description from ")
         load_vectorstore(files, job_description)
         logger.info("✅ Documents added to vectorstore successfully")
         return {"message": "Files processed and vectorstore updated"}

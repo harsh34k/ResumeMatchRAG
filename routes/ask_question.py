@@ -10,7 +10,7 @@ from typing import Optional, List
 from modules.llm import get_llm_chain, get_contextualizer_chain
 from modules.query_handlers import query_chain
 from logger import logger
-from main import verify_oidc_token  # Import OIDC dependency
+
 
 router = APIRouter()
 PINECONE_INDEX_NAME = "resume-match-index2"
@@ -21,10 +21,9 @@ chat_histories: dict[str, List[dict]] = {}
 async def ask_question(
     session_id: str = Form(...),
     question: str = Form(...),
-    user=Depends(verify_oidc_token),  # Add OIDC dependency
 ):
     try:
-        logger.info(f"[session {session_id}] user query: {question} from user: {user}")
+        logger.info(f"[session {session_id}] user query: {question}")
         history = chat_histories.get(session_id, [])
         contextualizer = get_contextualizer_chain()
         context_input = {
@@ -77,7 +76,6 @@ async def ask_question(
 @router.post("/ask/top_candidates/")
 async def get_top_candidates(
     job_description: str = Form(...),
-    user=Depends(verify_oidc_token),  # Add OIDC dependency
 ):
     try:
         if not job_description or not isinstance(job_description, str):
